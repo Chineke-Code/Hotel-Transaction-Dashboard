@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?><sqlb_project><db path="C:/Users/otmar/Downloads/Revenue.db" readonly="0" foreign_keys="1" case_sensitive_like="0" temp_store="0" wal_autocheckpoint="1000" synchronous="2"/><attached/><window><main_tabs open="structure browser pragmas query" current="3"/></window><tab_structure><column_width id="0" width="300"/><column_width id="1" width="0"/><column_width id="2" width="150"/><column_width id="3" width="9092"/><column_width id="4" width="0"/><expanded_item id="0" parent="1"/><expanded_item id="1" parent="1"/><expanded_item id="2" parent="1"/><expanded_item id="3" parent="1"/></tab_structure><tab_browse><current_table name="4,14:mainMarket_Segment"/><default_encoding codec=""/><browse_table_settings><table schema="main" name="Market_Segment" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="118"/><column index="2" value="194"/><column index="3" value="214"/><column index="4" value="297"/><column index="5" value="277"/><column index="6" value="277"/><column index="7" value="239"/><column index="8" value="287"/><column index="9" value="184"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="Meal_Cost" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="118"/><column index="2" value="194"/><column index="3" value="214"/><column index="4" value="297"/><column index="5" value="101"/><column index="6" value="115"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats><column index="6" value=""/></display_formats><hidden_columns/><plot_y_axes/><global_filter/></table><table schema="main" name="Sales" show_row_id="0" encoding="" plot_x_axis="" unlock_view_pk="_rowid_"><sort/><column_widths><column index="1" value="118"/><column index="2" value="131"/><column index="3" value="113"/><column index="4" value="194"/><column index="5" value="214"/><column index="6" value="295"/><column index="7" value="297"/><column index="8" value="277"/><column index="9" value="277"/><column index="10" value="239"/><column index="11" value="95"/><column index="12" value="78"/><column index="13" value="61"/><column index="14" value="90"/><column index="15" value="184"/><column index="16" value="222"/><column index="17" value="201"/><column index="18" value="244"/><column index="19" value="300"/><column index="20" value="224"/><column index="21" value="224"/><column index="22" value="190"/><column index="23" value="190"/><column index="24" value="144"/><column index="25" value="104"/><column index="26" value="223"/><column index="27" value="223"/><column index="28" value="164"/><column index="29" value="300"/><column index="30" value="316"/><column index="31" value="274"/><column index="32" value="259"/><column index="33" value="259"/><column index="34" value="287"/><column index="35" value="287"/></column_widths><filter_values/><conditional_formats/><row_id_formats/><display_formats/><hidden_columns/><plot_y_axes/><global_filter/></table></browse_table_settings></tab_browse><tab_sql><sql name="SQL 1">--Provide summary statistics of sales data for the three years:
+SELECT 
+    Sales.arrival_date_year, count(ID) as &quot;Total Number of Bookings&quot;,
+	'₦' || ROUND(AVG(adr), 2) as &quot;Average Daily Rate&quot;,
+    '₦' || ROUND(SUM(daily_lodging_transactions), 2) as &quot;Total Revenue Generated&quot;, 
+    '₦' || ROUND(AVG(daily_lodging_transactions), 2) as &quot;Average Sales&quot;, 
+    '₦' || ROUND(MAX(daily_lodging_transactions), 2) as &quot;Highest Sales&quot;, 
+    '₦' || ROUND(MIN(daily_lodging_transactions), 2) as &quot;Lowest Sales&quot;
+	
+FROM Sales
+WHERE Sales.arrival_date_year IS NOT NULL
+GROUP BY Sales.arrival_date_year 
+
+
+--What are the average daily rates (ADR) for different types of meals?:
+SELECT 
+     Meal, 
+	   '₦'|| ROUND (AVG(meal_price), 2) as &quot;Meals AverageDailyRate&quot;
+FROM meal_cost
+WHERE Meal IS NOT NULL
+GROUP BY Meal;
+
+--How many bookings were canceled by the market segment?:
+SELECT market_segment, count(is_canceled) as &quot;Canceled Bookings&quot; 
+FROM Sales
+WHERE Sales.is_canceled = 1
+GROUP BY Sales.market_segment;
+
+--What ten countries had the least number of bookings?:
+SELECT Country, COUNT(ID) as TotalBookings
+FROM Sales
+WHERE Country IS NOT NULL
+GROUP BY Country
+ORDER BY TotalBookings ASC
+LIMIT 10;
+
+--What are the most popular meal packages booked by customers?:
+SELECT Meal, COUNT(ID) as TotalBookings
+FROM meal_cost
+GROUP BY Meal
+ORDER BY TotalBookings DESC;
+
+--Which country has the highest number of bookings in the database?:
+SELECT Country, COUNT(ID) as TotalBookings
+FROM Sales
+GROUP BY Country
+ORDER BY TotalBookings DESC
+LIMIT 1;
+
+--What is the average number of special requests made by customers for different room types?:
+SELECT reserved_room_type, ROUND (AVG(total_of_special_requests), 0) as AverageSpecialRequests
+FROM Sales
+WHERE reserved_room_type IS NOT NULL
+GROUP BY reserved_room_type;
+
+
+--What is the average lead time for bookings made through travel agents compared to tour operators?:
+SELECT 
+    CASE 
+        WHEN market_segment = 'Online TA' THEN 'Travel Agent'
+        ELSE 'Tour Operator'
+    END AS BookingType,
+    AVG(lead_time) as AverageLeadTime
+FROM Sales
+WHERE distribution_channel = 'TA/TO' AND market_segment IN ('Online TA', 'Offline TA/TO', 'Undefined', 'Direct', 'Groups', 'Corporate', 'Aviation', 'Complementary')
+GROUP BY BookingType;
+
+
+--What is the average number of days bookings spend on the waiting list before confirmation, and how does it vary across different market segments?:
+SELECT market_segment, ROUND (AVG(days_in_waiting_list), 1) as AverageWaitingDays
+FROM Sales
+WHERE market_segment IS NOT NULL
+GROUP BY market_segment;
+
+--How does the average daily rate (ADR) differ for repeated guests compared to new customers?:
+SELECT 
+    CASE 
+        WHEN is_repeated_guest = 0 THEN 'New Customer'
+        ELSE 'Repeated Guest'
+    END AS CustomerType,
+ '₦'||round(AVG(adr), 2) as AverageDailyRate
+FROM Sales
+WHERE is_repeated_guest IS NOT NULL
+GROUP BY is_repeated_guest;
+------------------------------
+
+
+
+</sql><current_tab id="0"/></tab_sql></sqlb_project>
